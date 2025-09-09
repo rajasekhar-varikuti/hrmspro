@@ -1,0 +1,57 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15
+    container_name: hrms_postgres
+    environment:
+      POSTGRES_DB: hrms_db
+      POSTGRES_USER: hrms_user
+      POSTGRES_PASSWORD: hrms_password
+    ports:
+      - "5434:5432"  # Changed to 5434 to avoid conflict with local PostgreSQL
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - hrms_network
+
+  # Backend Service
+  backend:
+    build: ./backend
+    container_name: hrms_backend
+    ports:
+      - "5000:5000"
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: postgresql://hrms_user:hrms_password@postgres:5432/hrms_db
+      JWT_SECRET: your_jwt_secret_key_here
+      PORT: 5000
+    depends_on:
+      - postgres
+    volumes:
+      - ./backend:/app
+    networks:
+      - hrms_network
+    command: uvicorn main:app --host 0.0.0.0 --port 5000 --reload
+
+  # Frontend Service
+  frontend:
+    build: ./frontend
+    container_name: hrms_frontend
+    ports:
+      - "3000:3000"
+    environment:
+      REACT_APP_API_URL: http://localhost:5000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - hrms_network
+    command: npm start
+
+volumes:
+  postgres_data:
+
+networks:
+  hrms_network:
+    driver: bridge
